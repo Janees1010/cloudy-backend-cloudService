@@ -27,6 +27,7 @@ const createFolder = async(name,parentId,userId)=>{
 const createFile = async(fileData)=>{
    try {
      const file = await File.create(fileData)
+     return file
    } catch (error) {
      throw new Error("error wfile creating file" + error.message)
    }
@@ -42,8 +43,8 @@ const findFolderChilds = async(data)=>{
     const folders = await Folder.find({userId,parentId}) 
     
     const childrens = [
-      ...files.map(file => ({ childrenType: 'file', ...file.toObject() })),
-      ...folders.map(folder => ({ childrenType: 'folder', ...folder.toObject() }))
+      ...folders.map(folder => ({ childrenType: 'folder', ...folder.toObject() })),
+      ...files.map(file => ({ childrenType: 'file', ...file.toObject() }))
   ];
     return childrens
  } catch (error) {

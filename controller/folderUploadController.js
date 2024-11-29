@@ -7,27 +7,24 @@ const handleUploadFolder = async (req, res) => {
   try {
     const files = req.files;
     const {relativePaths} = req.body; 
-   
+
     if (!files || files.length === 0) {
       return res.status(400).json({ message: "No files uploaded" });
     }
       const fileArray = files.map((file, index) => {
       const relativePath = relativePaths[index];
-      // Create an object for each file with required fields
-      return {
+      return {      
         name:file.originalname,
-        location:file.location,  // Assuming you'll get this from S3 after uploading the file
-        mimetype: file.mimetype,  // Assuming this is something like a local path or URL
+        location:file.location,  
+        mimetype: file.mimetype,  
         size: file.size,
         webKitRelativePath: relativePath,
       };
     })
-    console.log(fileArray);
     
     const response  =  await folderUploadService(req.query,fileArray)
-    console.log(response);
-    
-    return res.status(200).json({message:"folder uploaded successfully"})
+    console.log(response,"respponse");
+    return res.status(200).json({message:"folder uploaded successfully",response})
   } catch (error) {
     return res.status(500).json(error.message);
   }
@@ -44,7 +41,7 @@ const handleFileUpload = async(req,res)=>{
 }
 const getFolderChilds = async(req,res)=>{
   try {
-    console.log(req.params);
+      console.log(req.params);
     
       const childrens = await getFolderChildsService(req.params)
       console.log(childrens);
@@ -59,4 +56,4 @@ module.exports = {
   handleUploadFolder,
   handleFileUpload,
   getFolderChilds
-};
+};    
