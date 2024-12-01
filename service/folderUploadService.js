@@ -7,6 +7,7 @@ const {
 const folderUploadService = async (data, filesArray) => {
   try {
       let { parentId = null, userId } = data;
+      if(!parentId, !userId) throw new Error ("folder upload credentials are missing")
       const rootFolderId = parentId; 
       const folderMap = new Map();
       folderMap.set("", rootFolderId); 
@@ -22,7 +23,7 @@ const folderUploadService = async (data, filesArray) => {
               // Check if the folder already exists in the map 
               if (!folderMap.has(currentPath)) {
                   // Create the folder and store its ID in the map
-                  const folder = await createFolder(folderName, currentParentId, userId);
+                  const folder = await createFolder({name:folderName, parentId:currentParentId, userId});
                   folderMap.set(currentPath, folder._id);
               }
               // Update the current parent ID to the resolved folder ID

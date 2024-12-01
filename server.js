@@ -3,6 +3,7 @@ const app = express()
 const connectDb = require("./dbConnection/connections")
 const cors = require("cors")
 const folderRoutes = require("./routes/folderRoutes")
+const fileRoutes = require("./routes/fileRoutes")
 require("dotenv").config()
 
 app.use(cors({
@@ -12,6 +13,7 @@ app.use(cors({
 app.use(express.json())
 
 app.use("/folder",folderRoutes)
+app.use("/file",fileRoutes)
 
 connectDb()
-app.listen(process.env.PORT,() => console.log(`serevr running on : ${process.env.PORT}`))   
+app.listen(process.env.PORT,() => console.log(`serevr running on : ${process.env.PORT}`))      

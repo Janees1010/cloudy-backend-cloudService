@@ -1,0 +1,15 @@
+const {findFolder,createFolder,findFolderChilds} = require("../repository/cloudRepository")
+
+const createFolderService = async(data)=>{
+    try {
+        const folder = await findFolder(data)
+        if(folder) throw new Error("folder already exists")
+        const response = await createFolder(data)
+        const newChildrens = await findFolderChilds(data)
+        return newChildrens
+    } catch (error) {
+       throw new Error(error.message)   
+    }
+}
+
+module.exports = createFolderService

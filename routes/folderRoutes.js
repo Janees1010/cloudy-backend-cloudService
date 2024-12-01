@@ -3,14 +3,14 @@ const router = express.Router()
 const {upload} = require("../middleware/imageUpload")
 const {
  handleUploadFolder,
- handleFileUpload,
+ handleCreateFolder,
  getFolderChilds,
-} = require("../controller/folderUploadController")
+} = require("../controller/folderController")
 
 
 router.post("/upload",upload.array("files[]"), handleUploadFolder)
+router.post("/create", handleCreateFolder)
 router.get("/childrens/:parentId/:userId",getFolderChilds)
-// router.post("/",upload.single("file"), handleFileUpload)
 
 
 module.exports = router;
