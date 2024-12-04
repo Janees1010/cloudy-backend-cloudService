@@ -4,6 +4,7 @@ const folderSchema = new mongoose.Schema({
   name: { type: String, required: true },
   parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Folder', default: null }, // Reference to the parent folder
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Reference to the user who owns this folder
+  type:{type:String,default:"folder"},
   createdAt: { type: Date, default: Date.now },
 });
 

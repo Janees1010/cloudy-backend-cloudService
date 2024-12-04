@@ -7,8 +7,8 @@ const fileSchema = new mongoose.Schema({
   parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Folder', default: null }, // Parent folder reference
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // File owner
   s3Url: { type: String, required: true }, // URL to access the file in cloud storage
-  createdAt: { type: Date, default: Date.now }, // Timestamp for file creation
+  lastAccessed: { type: Date, default: Date.now }, // Timestamp for file creation
 });
 
 const File = mongoose.model('File', fileSchema);
-module.exports = File;
+module.exports = File;  

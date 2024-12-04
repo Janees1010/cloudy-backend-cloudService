@@ -5,8 +5,8 @@ const createFolderService = async(data)=>{
         const folder = await findFolder(data)
         if(folder) throw new Error("folder already exists")
         const response = await createFolder(data)
-        const newChildrens = await findFolderChilds(data)
-        return newChildrens
+        // const newChildrens = await findFolderChilds(data)
+        return response
     } catch (error) {
        throw new Error(error.message)   
     }

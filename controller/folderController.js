@@ -38,8 +38,11 @@ const getFolderChilds = async(req,res)=>{
 
 const handleCreateFolder = async(req,res)=>{
    try {
-     const response = await createFolderService(req.body)
-     return res.status(200).json({message:"folder created successfully",response})
+     console.log(req.body);
+    
+     const newFolder = await createFolderService(req.body)
+     newFolder.childrenType = "folder"
+     return res.status(200).json({message:"folder created successfully",newFolder})
    } catch (error) {
       return res.status(500).json(error.message)
    }

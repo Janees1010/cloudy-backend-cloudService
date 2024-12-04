@@ -23,7 +23,6 @@ const upload = multer({
     },
     contentType: (req, file, cb) => {
       console.log(file.mimetype,"type");   
-      
       cb(null, file.mimetype); // Use file's mimetype
     },
   }),
