@@ -2,7 +2,7 @@ const {
     createFolder,
     createFile,
     findFolderChilds
-} = require("../repository/cloudRepository")
+} = require("../../repository/cloudRepository")
 
 const folderUploadService = async (data, filesArray) => {
   try {
@@ -13,6 +13,7 @@ const folderUploadService = async (data, filesArray) => {
       folderMap.set("", rootFolderId); 
 
       for (let file of filesArray) {
+          console.log(file,"file");
           const paths = file.webKitRelativePath.split("/");
           const fileName = paths.pop(); 
           let currentPath = ""; 
@@ -27,24 +28,24 @@ const folderUploadService = async (data, filesArray) => {
                   folderMap.set(currentPath, folder._id);
               }
               // Update the current parent ID to the resolved folder ID
-              currentParentId = folderMap.get(currentPath);
+              currentParentId = folderMap.get(currentPath); 
           }
           // After creating or resolving folders, create the file
           const fileDetails = {
               name: fileName,
               parentId: currentParentId,
-              userId,
+              owner:userId,
               size: file.size,
-              type: file.mimetype,
-              s3Url: file.location,
+              type: file.type,
+              s3Url: file.url,
           };
           await createFile(fileDetails);
       }
-      const newFolderChilds = await findFolderChilds({userId,parentId})
+      const newFolderChilds = await findFolderChilds({userId,parentId,type:"drive"})
       return {parentId,childrens:newFolderChilds}
   } catch (error) {
       console.error("Error in folderUploadService:", error.message);
-      throw new Error(error.message);
+      throw new Error(error.message);  
   }
 };
 

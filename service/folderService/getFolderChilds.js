@@ -1,4 +1,4 @@
-const  {findFolderChilds} =  require("../repository/cloudRepository")
+const  {findFolderChilds} =  require("../../repository/cloudRepository")
 
 const getFolderChildsService = async(data)=>{
     try {

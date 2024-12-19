@@ -1,4 +1,4 @@
-const {getRecentFiles} = require("../repository/cloudRepository")
+const {getRecentFiles} = require("../../repository/cloudRepository")
 
 const  getRecentFilesService = async(userId)=>{
    try {

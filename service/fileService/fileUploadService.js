@@ -1,4 +1,4 @@
-const {createFile,findFolderChilds} = require("../repository/cloudRepository")
+const {createFile,findFolderChilds} = require("../../cloudRepositoryrepository/cloudRepository")
 
 const fileUploadService = async(body,file)=>{
     try {
@@ -8,11 +8,11 @@ const fileUploadService = async(body,file)=>{
         
         if(!file || !parentId, !userId) throw new Error ("fileUpload crendentials are missing")
         const fileDetails = {
-            name:file.originalname,
+            name:file.name,
             size:file.size,
-            type:file.mimetype,
-            s3Url:file.location,
-            userId,
+            type:file.type,
+            s3Url:file.url,
+            owner:userId,
             parentId
         }
         const response  = await createFile(fileDetails)

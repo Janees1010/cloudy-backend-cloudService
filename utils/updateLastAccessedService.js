@@ -9,4 +9,4 @@ const  updateLastAccessedService = async(data)=>{
     }
 }
 
-module.exports =  updateLastAccessedService
+module.exports =  updateLastAccessedService   
