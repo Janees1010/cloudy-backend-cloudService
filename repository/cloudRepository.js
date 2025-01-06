@@ -1,6 +1,10 @@
 const Folder = require("../models/folderSchema");
 const File = require("../models/fileSchema");
 const mongoose = require("mongoose");
+const { loadConfigFromFile } = require("vite");
+const {
+  getUserDetailsByIds,
+} = require("../../userServices/controller/userController");
 
 // const findOneFolder = async(name,userId)=>{
 //     try {
@@ -28,45 +32,54 @@ const createFolder = async (data) => {
   }
 };
 
-const findLatestFolderandFile = async()=>{
-   try {
-       const folders =  await Folder.find({$or:[
+const findLatestFolderandFile = async (userId) => {
+  try {
+    const folders = await Folder.find({
+      parentId: null,
+      $or: [
         {
-          owner:userId,
-          isDeleted:false,
-          isMovedToBin:false
+          owner: userId,
+          isDeleted: false,
+          isMovedToBin: false,
         },
         {
-          sharedWith:{
-            $elemMatch:{
+          sharedWith: {
+            $elemMatch: {
               userId,
-              isMovedToBin:false,
-              isDeleted:false
-            }
-          }
-        }
-       ]}).sort({_id:-1}).limit(8)
-       const files = await File.find({$or:[
+              isMovedToBin: false,
+              isDeleted: false,
+            },
+          },
+        },
+      ],
+    })
+      .sort({ _id: -1 })
+      .limit(6);
+    const files = await File.find({
+      $or: [
         {
-          owner:userId,
-          isDeleted:false,
-          isMovedToBin:false
+          owner: userId,
+          isDeleted: false,
+          isMovedToBin: false,
         },
         {
-          sharedWith:{
-            $elemMatch:{
+          sharedWith: {
+            $elemMatch: {
               userId,
-              isMovedToBin:false,
-              isDeleted:false
-            }
-          }
-        }
-       ]}).sort({_id:-1}).limit(8)
-       return [folders,files]
-   } catch (error) {
-      throw new Error(`error while fetching latest folders:${error.message}`)
-   }
-}
+              isMovedToBin: false,
+              isDeleted: false,
+            },
+          },
+        },
+      ],
+    })
+      .sort({ _id: -1 })
+      .limit(10);
+    return [folders, files];
+  } catch (error) {
+    throw new Error(`error while fetching latest folders:${error.message}`);
+  }
+};
 
 const createFile = async (fileData) => {
   try {
@@ -79,8 +92,7 @@ const createFile = async (fileData) => {
 
 const findFolderChilds = async (data) => {
   try {
-    let { userId, parentId, type } = data;
-
+    let { userId, parentId, type, page } = data;
     if (!userId)
       throw new Error("Credentials for finding children are missing");
 
@@ -118,11 +130,19 @@ const findFolderChilds = async (data) => {
       };
     }
 
-    const files = await File.find(query);
-    const folders = await Folder.find(query);
+    const folders = await Folder.find(query).limit(10);
+    const limit = page * 10 - folders.length;
+    const files = await File.find(query).limit(limit);
+    const folderCount = await Folder.countDocuments(query);
+    const fileCount = await File.countDocuments(query);
     // Combine results
+
+    const totalDocumentCount = fileCount + folderCount;
+
     const childrens = folders.concat(files);
-    return childrens;
+    const res = await fetchUserDetails(childrens);
+    console.log(res);
+    return { childrens: res, totalDocumentCount };
   } catch (error) {
     console.error("Error while fetching folder children:", error);
     throw new Error(`Error while fetching folder children: ${error.message}`);
@@ -183,6 +203,20 @@ const findFolder = async (data) => {
   }
 };
 
+const fetchUserDetails = async (data) => {
+  const response = await fetch("http://localhost:3500/user/details", {
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  const res = await response.json();
+  console.log(res, "res");
+
+  return res;
+};
+
 const getRecentFiles = async (userId) => {
   try {
     const now = new Date();
@@ -193,7 +227,7 @@ const getRecentFiles = async (userId) => {
     startOfLastMonth.setDate(startOfToday.getDate() - 30);
 
     // Single database query for all relevant files
-    const files = await File.find({
+    let files = await File.find({
       lastAccessed: { $gte: startOfLastMonth },
       $or: [
         {
@@ -208,9 +242,12 @@ const getRecentFiles = async (userId) => {
         },
       ],
       // Fetch files accessed in the last month and older
-    }).sort({ lastAccessed: -1 });
+    })
+      .sort({ lastAccessed: -1 })
+      .limit(10);
 
     // Categorize files in application logic
+
     const recentFiles = {
       today: [],
       lastWeek: [],
@@ -218,18 +255,19 @@ const getRecentFiles = async (userId) => {
       older: [],
     };
 
-    files.forEach((file) => {
+    const data = await fetchUserDetails(files);
+
+    files.forEach((file, index) => {
       if (file.lastAccessed >= startOfToday) {
-        recentFiles.today.push(file);
+        recentFiles.today.push(data[index]);
       } else if (file.lastAccessed >= startOfLastWeek) {
-        recentFiles.lastWeek.push(file);
+        recentFiles.lastWeek.push(data[index]);
       } else if (file.lastAccessed >= startOfLastMonth) {
-        recentFiles.lastMonth.push(file);
+        recentFiles.lastMonth.push(data[index]);
       } else {
-        recentFiles.older.push(file);
+        recentFiles.older.push(data[index]);
       }
     });
-    console.log(recentFiles, "recent");
     return recentFiles;
   } catch (error) {
     throw new Error(`Error fetching recent files: ${error.message}`);
@@ -263,8 +301,12 @@ const updateLastAccesssed = async (data) => {
   }
 };
 
-const findFilesStorage = async (userId) => {
+const findFilesStorage = async (query) => {
+  const { userId, currentPage, getPercentage = false } = query;
+  let page = currentPage;
   const userIdObjectId = new mongoose.Types.ObjectId(userId);
+  const limit = page * 10;
+
   try {
     const files = await File.aggregate([
       {
@@ -295,6 +337,11 @@ const findFilesStorage = async (userId) => {
         },
       },
       {
+        $set: {
+          files: { $slice: ["$files", limit] }, // Limit the files array to 10 documents
+        },
+      },
+      {
         $project: {
           files: 1,
           totalStorage: 1,
@@ -302,7 +349,13 @@ const findFilesStorage = async (userId) => {
         },
       },
     ]);
-    console.log(files);
+    if (getPercentage) {
+      const storageUsed = files[0].totalStorage;
+      const max = 10 * 1024 * 1024 * 1024;
+      const percentageUsed = (storageUsed / max) * 100;
+      return percentageUsed.toFixed(2);
+    }
+
     return files;
   } catch (error) {
     throw new Error(
@@ -320,14 +373,14 @@ const moveToBin = async (id, type, name) => {
       // Move the folder to bin
       let folderResponse;
       if (!isBinRoot) {
-        folderResponse = await Folder.findOneAndUpdate(  
+        folderResponse = await Folder.findOneAndUpdate(
           { _id: id, name },
           { isMovedToBin: true, isBinRoot: true }
         );
       } else {
         folderResponse = await Folder.findOneAndUpdate(
           { _id: id, name },
-          { isMovedToBin: true}
+          { isMovedToBin: true }
         );
       }
       isBinRoot = true;
@@ -368,11 +421,11 @@ const moveToBin = async (id, type, name) => {
   }
 };
 
-const findBinItems = async (userId) => {
+const findBinItems = async (details) => {
   try {
-    console.log(userId);
-    const files = await File.find({
-      isBinRoot:true,
+    const { userId, page } = details;
+    const query = {
+      isBinRoot: true,
       $or: [
         {
           owner: userId,
@@ -385,25 +438,19 @@ const findBinItems = async (userId) => {
           },
         },
       ],
-    });
-    const folder = await Folder.find({
-      isBinRoot:true,
-      $or: [
-        {
-          owner: userId,
-          isMovedToBin: true,
-          isDeleted: false,
-        },
-        {
-          sharedWith: {
-            $elemMatch: { userId, isMovedToBin: true, isDeleted: false },
-          },
-        },
-      ],
-    });
+    };
+    const folder = await Folder.find(query).limit(page * 2);
+    console.log(folder);
+
+    const limit = page * 2 - folder.length;
+    const files = limit != 0 ? await File.find(query).limit(limit) : [];
+
+    const fileCount = await File.countDocuments(query);
+    const folderCount = await Folder.countDocuments(query);
+    const totalCount = fileCount + folderCount;
+    console.log(fileCount, folderCount);
     let data = folder.concat(files);
-    console.log(data);
-    return data;
+    return { data, totalCount };
   } catch (error) {
     throw new Error(`error whilw fetching bin items:${error.message}`);
   }
@@ -468,28 +515,55 @@ const restoreFiles = async (data) => {
 const deleteFile = async (data) => {
   try {
     const { id, userId, type } = data;
-    const Model = type === "foler" ? "Folder" : "File";
-    const document = await Model.find({ _id: id });
-    if (document.owner === userId) {
-      Model.findOneAndUpdate(
+    const Model = type === "folder" ? Folder : File;
+    const document = await Model.findById(id);
+
+    if (document.owner.toString() === userId) {
+      await Model.findOneAndUpdate(
         { _id: id, isMovedToBin: true },
         { isDeleted: true }
       );
     } else {
-      Model.findOneAndUpdate(
+      await Model.findOneAndUpdate(
         {
           _id: id,
           "sharedWith.userId": userId,
           "sharedWith.isMovedToBin": true,
           "sharedWith.isDeleted": false,
         },
-        { $set: { "sharedWith.$.isDeleted": true } }
+        { $pull: { sharedWith: { userId: userId } } }
       );
+    }
+    const file = await Model.findById(id);
+    if (file.isDeleted && (!file.sharedWith || file.sharedWith.length === 0)) {
+        hardDeleteFiles({userId,file})
     }
   } catch (error) {
     throw new Error(`error deleting:${error.message}`);
   }
 };
+
+const hardDeleteFiles = async(data)=>{
+   try {
+    const {userId,file} = data
+    let query = {
+      $or: [{ owner: userId }, { $elemMatch: { sharedWith: { userId } } }],
+      parentId: file._id,
+    }
+    if (file && file.type === "folder") {
+      await File.deleteMany(query);
+      const folders = await Folder.find(query)
+      for(sub of folders){
+            await Folder.findByIdAndDelete(sub._id)
+            await deleteFile({id:sub._id,type:sub.type,userId})
+      }
+    } else {
+       await File.findByIdAndDelete(file._id);
+    }
+   } catch (error) {
+     throw new Error(`error while removing files from db : ${error.message}`)
+   }
+}
 
 const fileShare = async (data) => {
   try {
@@ -579,10 +653,9 @@ const fileShare = async (data) => {
   }
 };
 
-const getSharedFiles = async (data) => {
+const getSharedFiles = async (details) => {
   try {
-    const { userId } = data;
-    console.log(userId);
+    const { userId } = details;
 
     if (!userId) throw new Error("UserId missing");
     const files = await File.find({
@@ -600,9 +673,21 @@ const getSharedFiles = async (data) => {
     });
     console.log(files, folders);
     const merge = folders.concat(files);
+    const data = await fetchUserDetails(merge);
+    console.log(data, "RES");
     return merge;
   } catch (error) {
     throw new Error(`error while geting shared files:${error.message}`);
+  }
+};
+
+const searchFileOrFolder = async (query) => {
+  try {
+    const files = await File.find({ name: new RegExp(query, "i") });
+    const folders = await Folder.find({ name: new RegExp(query, "i") });
+    return folders.concat(files);
+  } catch (error) {
+    throw new Error(`error while search:${error.message}`);
   }
 };
 
@@ -620,5 +705,6 @@ module.exports = {
   deleteFile,
   fileShare,
   getSharedFiles,
-  findLatestFolderandFile
+  findLatestFolderandFile,
+  searchFileOrFolder,
 };

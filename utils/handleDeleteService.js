@@ -1,4 +1,5 @@
 const {deleteFile} = require("../repository/cloudRepository")
+
 const handleDeleteService = async(data)=>{
       try {
          const response  =  await deleteFile(data)

@@ -5,7 +5,9 @@ const {
  handleUploadFolder,
  handleCreateFolder,
  getFolderChilds,
- getLatestFolders
+ getLatestFolders,
+ getSearchResult,
+ handleDelete
 } = require("../controller/folderController")
 
 
@@ -13,6 +15,7 @@ router.post("/upload",handleUploadFolder)
 router.post("/create", handleCreateFolder)
 router.get("/childrens",getFolderChilds)
 router.get("/latest",getLatestFolders)
+router.get("/search",getSearchResult)
 
 
 module.exports = router;  

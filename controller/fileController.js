@@ -16,7 +16,7 @@ const handleFileUpload = async(req,res)=>{
     try {
        const {file}  = req.body
        const response = await fileUploadService(req.query,file[0])
-       return res.status(200).json({message:"file uploaded successfully",response})
+       return res.status(200).json(response)
     } catch (error) {
        return res.status(500).json(error.message);
     }
@@ -51,8 +51,7 @@ const handleFileUpload = async(req,res)=>{
 
   const getFilesStorage = async(req,res)=>{
     try {
-       const {userId} = req.query;
-       const response  = await getFilesStorageService(userId)
+       const response  = await getFilesStorageService(req.query)
        return res.status(200).json(response)
     } catch (error) {
           return res.status(500).json(error.message);
@@ -81,9 +80,7 @@ const handleFileUpload = async(req,res)=>{
 
  const getBinFilesAndFolders = async(req,res)=>{
    try {
-      const {userId}  = req.query;
-      console.log(userId,"gg");
-      const response  =  await getBinFilesAndFoldersService(userId)
+      const response  =  await getBinFilesAndFoldersService(req.query)
       return res.status(200).json(response)
    } catch (error) {
       return res.status(500).json(error.message);

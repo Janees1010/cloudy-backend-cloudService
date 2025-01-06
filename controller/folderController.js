@@ -1,7 +1,8 @@
 const folderUploadService = require("../service/folderService/folderUploadService")
 const getFolderChildsService = require("../service/folderService/getFolderChilds")
 const createFolderService = require("../service/folderService/createFolderService")
-const getLatestFoldersService = require("../service/folderService/getLatestFoldersService")
+const getLatestFolderFilessService = require("../service/folderService/getLatestFoldersService")
+const handleSearchService = require("../utils/getSearchResultsService")
 
 const handleUploadFolder = async (req, res) => {
   try {   
@@ -20,13 +21,13 @@ const handleUploadFolder = async (req, res) => {
 const getFolderChilds = async(req,res)=>{
   try {
       const childrens = await getFolderChildsService(req.query)
-      return res.status(200).json({childrens})
+      return res.status(200).json(childrens)
   } catch (error) {
      return res.status(500).json(error.message)
   }
 }  
 
-const handleCreateFolder = async(req,res)=>{
+const handleCreateFolder = async(req,res)=>{                                                          
    try {
      const newFolder = await createFolderService(req.body)
      newFolder.childrenType = "folder"
@@ -40,16 +41,28 @@ const getLatestFolders = async(req,res)=>{
   try {
       const {userId} = req.query;
       const response  = await getLatestFolderFilessService(userId)
-      return res.status(200).json({message:"folder created successfully",response})
-
+      return res.status(200).json(response)
+  } catch (error) {
+    return res.status(500).json(error.message)
+  }
+}
+const getSearchResult = async(req,res)=>{
+  try {
+      const {query} = req.query;
+      const result  =  await handleSearchService(query)
+      return res.status(200).json(result)
   } catch (error) {
     return res.status(500).json(error.message)
   }
 }
 
+
+
 module.exports = {
   handleUploadFolder,
   getFolderChilds,
   handleCreateFolder,
-  getLatestFolders
+  getLatestFolders,
+  getSearchResult,
+  
 };    

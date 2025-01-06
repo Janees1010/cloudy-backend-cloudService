@@ -1,4 +1,4 @@
-const {createFile,findFolderChilds} = require("../../cloudRepositoryrepository/cloudRepository")
+const {createFile,findFolderChilds} = require("../../repository/cloudRepository")
 
 const fileUploadService = async(body,file)=>{
     try {
@@ -16,11 +16,11 @@ const fileUploadService = async(body,file)=>{
             parentId
         }
         const response  = await createFile(fileDetails)
-        const newChildrens = await findFolderChilds(body)
+        const newChildrens = await findFolderChilds({userId,parentId,type:"drive",page:1})
         return {parentId,childrens:newChildrens}
     } catch (error) {
         throw new Error(error.message)
     }
 }
 
-module.exports = fileUploadService
+module.exports = fileUploadService                                                         

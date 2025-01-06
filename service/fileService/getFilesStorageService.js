@@ -1,8 +1,8 @@
 const {findFilesStorage} = require("../../repository/cloudRepository")
 
-const getFilesStorageService = async(userId)=>{
+const getFilesStorageService = async(data)=>{
      try {
-        const response = findFilesStorage(userId)
+        const response = await findFilesStorage(data)
         return response
      } catch (error) {
          throw new Error(error.message)

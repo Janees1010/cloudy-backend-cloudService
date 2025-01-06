@@ -1,8 +1,8 @@
 const {findBinItems} = require("../repository/cloudRepository")
 
-const getBinFilesAndFoldersService = async(userId)=>{
+const getBinFilesAndFoldersService = async(data)=>{
     try {
-        const response  = await findBinItems(userId)
+        const response  = await findBinItems(data)
         return response
     } catch (error) {
         throw new Error(error.message)
