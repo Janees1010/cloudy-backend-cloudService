@@ -75,6 +75,8 @@ const findLatestFolderandFile = async (userId) => {
     })
       .sort({ _id: -1 })
       .limit(10);
+    console.log(files);
+
     return [folders, files];
   } catch (error) {
     throw new Error(`error while fetching latest folders:${error.message}`);
@@ -93,6 +95,8 @@ const createFile = async (fileData) => {
 const findFolderChilds = async (data) => {
   try {
     let { userId, parentId, type, page } = data;
+    console.log(data);
+    
     if (!userId)
       throw new Error("Credentials for finding children are missing");
 
@@ -104,6 +108,8 @@ const findFolderChilds = async (data) => {
         : null;
 
     // Fetch files
+    console.log(parentId);
+    
     let query;
     if (type === "drive") {
       query = {
@@ -140,9 +146,13 @@ const findFolderChilds = async (data) => {
     const totalDocumentCount = fileCount + folderCount;
 
     const childrens = folders.concat(files);
-    const res = await fetchUserDetails(childrens);
-    console.log(res);
-    return { childrens: res, totalDocumentCount };
+
+    if (type === "shared") {
+      const res = await fetchUserDetails(childrens);
+      return { childrens: res, totalDocumentCount };
+    } else {
+      return { childrens, totalDocumentCount };
+    }
   } catch (error) {
     console.error("Error while fetching folder children:", error);
     throw new Error(`Error while fetching folder children: ${error.message}`);
@@ -175,7 +185,6 @@ const findFolder = async (data) => {
       });
       return folder;
     } else {
-      console.log("this is needed repository 89");
       console.log(parentId);
       const folder = await Folder.findOne({
         _id: parentId,
@@ -212,8 +221,6 @@ const fetchUserDetails = async (data) => {
     body: JSON.stringify(data),
   });
   const res = await response.json();
-  console.log(res, "res");
-
   return res;
 };
 
@@ -308,22 +315,23 @@ const findFilesStorage = async (query) => {
   const limit = page * 10;
 
   try {
+    const query = {
+      $or: [
+        { owner: userIdObjectId, isMovedToBin: false, isDeleted: false },
+        {
+          sharedWith: {
+            $elemMatch: {
+              userId: userIdObjectId,
+              isMovedToBin: false,
+              isDeleted: false,
+            },
+          },
+        },
+      ],
+    };
     const files = await File.aggregate([
       {
-        $match: {
-          $or: [
-            { owner: userIdObjectId, isMovedToBin: false, isDeleted: false },
-            {
-              sharedWith: {
-                $elemMatch: {
-                  userId: userIdObjectId,
-                  isMovedToBin: false,
-                  isDeleted: false,
-                },
-              },
-            },
-          ],
-        },
+        $match: query,
       },
       {
         $group: {
@@ -349,14 +357,18 @@ const findFilesStorage = async (query) => {
         },
       },
     ]);
+    const totalDocumentCount = await File.countDocuments(query);
+
     if (getPercentage) {
+      if (!files.length) return 0.0;
       const storageUsed = files[0].totalStorage;
       const max = 10 * 1024 * 1024 * 1024;
       const percentageUsed = (storageUsed / max) * 100;
+      console.log(percentageUsed, "percentage");
       return percentageUsed.toFixed(2);
+    } else {
+      return { files, totalDocumentCount };
     }
-
-    return files;
   } catch (error) {
     throw new Error(
       `Error while fetching totol storage of file : ${error.message}`
@@ -364,52 +376,72 @@ const findFilesStorage = async (query) => {
   }
 };
 
-let isBinRoot = false;
-const moveToBin = async (id, type, name) => {
+// let isBinRoot = true;
+
+const moveToBin = async (id, type, name, userId, isBinRoot = true) => {
   try {
+    const Model = type === "folder" ? Folder : File;
+    const file = await Model.findById(id);
+
+    const isOwner = file.owner.toString() === userId;
+
+    let updateQuery;
+    let matchQuery;
+    let fileMatchQuery;
+
+    if (isOwner) {
+      updateQuery = { isMovedToBin: true, isBinRoot:isBinRoot};
+      matchQuery = { _id: id, name };
+      fileMatchQuery = { parentId: id };
+    } else {                       
+      matchQuery = {
+        _id: id,
+        name,
+        "sharedWith.userId": userId,
+      };
+      fileMatchQuery = { parentId: id, "sharedWith.userId": userId };   
+      updateQuery = {
+        $set: {
+          "sharedWith.$.isMovedToBin": true, // Update the specific object in the array
+          "sharedWith.$.isBinRoot": isBinRoot,
+        },
+      };
+    }
+    // Define match and update queries
+
     if (type === "folder") {
       id = id === "null" ? null : id;
-      console.log(id, "parentId");
-      // Move the folder to bin
       let folderResponse;
-      if (!isBinRoot) {
-        folderResponse = await Folder.findOneAndUpdate(
-          { _id: id, name },
-          { isMovedToBin: true, isBinRoot: true }
-        );
-      } else {
-        folderResponse = await Folder.findOneAndUpdate(
-          { _id: id, name },
-          { isMovedToBin: true }
-        );
-      }
-      isBinRoot = true;
+
+      // Move the root folder to bin
+
+      folderResponse = await Folder.findOneAndUpdate(matchQuery, updateQuery);
+      
+
+      isOwner ? updateQuery.isBinRoot = false : updateQuery.$set["sharedWith.$.isBinRoot"] = false
+      isBinRoot = false;
+
       if (!folderResponse) {
         throw new Error("Folder not found");
       }
 
       // Find all nested files and update their `isMovedToBin`
-      const res = await File.updateMany(
-        { parentId: id },
-        { isMovedToBin: true }
-      );
+
+      await File.updateMany(fileMatchQuery, updateQuery);
 
       // Find all nested subfolders
-      const subfolders = await Folder.find({ parentId: id });
+      const subfolders = await Folder.find({ parentId: id });  
 
       // Recursively move all subfolders to bin
       for (const subfolder of subfolders) {
-        await moveToBin(subfolder._id, "folder", subfolder.name);
+        await moveToBin(subfolder._id, "folder", subfolder.name, userId , isBinRoot);
       }
 
-      return folderResponse;
+      return folderResponse;  
     }
 
     // Move the file to bin
-    const fileResponse = await File.findOneAndUpdate(
-      { _id: id },
-      { isMovedToBin: true, isBinRoot: true }
-    );
+    const fileResponse = await File.findOneAndUpdate(matchQuery, updateQuery);
 
     if (!fileResponse) {
       throw new Error("File not found");
@@ -424,23 +456,28 @@ const moveToBin = async (id, type, name) => {
 const findBinItems = async (details) => {
   try {
     const { userId, page } = details;
+
     const query = {
-      isBinRoot: true,
       $or: [
         {
           owner: userId,
           isMovedToBin: true,
           isDeleted: false,
+          isBinRoot: true,
         },
         {
           sharedWith: {
-            $elemMatch: { userId, isMovedToBin: true, isDeleted: false },
+            $elemMatch: {
+              userId,
+              isMovedToBin: true,
+              isDeleted: false,
+              isBinRoot: true,
+            },
           },
         },
       ],
     };
-    const folder = await Folder.find(query).limit(page * 2);
-    console.log(folder);
+    const folder = await Folder.find(query).limit(page * 10);
 
     const limit = page * 2 - folder.length;
     const files = limit != 0 ? await File.find(query).limit(limit) : [];
@@ -448,7 +485,6 @@ const findBinItems = async (details) => {
     const fileCount = await File.countDocuments(query);
     const folderCount = await Folder.countDocuments(query);
     const totalCount = fileCount + folderCount;
-    console.log(fileCount, folderCount);
     let data = folder.concat(files);
     return { data, totalCount };
   } catch (error) {
@@ -490,9 +526,15 @@ const restoreFiles = async (data) => {
       );
     }
 
-    if (type === "folder" && isOwner) {
+    if (type === "folder") {
       // Restore nested files
-      await File.updateMany({ parentId: id }, { isMovedToBin: false });
+       if(isOwner){
+         await File.updateMany({ parentId: id },  { isMovedToBin: false });
+       }else{
+        await File.updateMany(
+          { parentId: id, "sharedWith.userId": userId },  // Match documents
+          { $set: { "sharedWith.$.isMovedToBin": false } }  // Update the specific field
+        );       }
 
       // Restore nested subfolders
       const subfolders = await Folder.find({ parentId: id });
@@ -505,7 +547,6 @@ const restoreFiles = async (data) => {
         });
       }
     }
-
     return response;
   } catch (error) {
     throw new Error(`Error restoring document: ${error.message}`);
@@ -517,7 +558,6 @@ const deleteFile = async (data) => {
     const { id, userId, type } = data;
     const Model = type === "folder" ? Folder : File;
     const document = await Model.findById(id);
-
     if (document.owner.toString() === userId) {
       await Model.findOneAndUpdate(
         { _id: id, isMovedToBin: true },
@@ -531,44 +571,54 @@ const deleteFile = async (data) => {
           "sharedWith.isMovedToBin": true,
           "sharedWith.isDeleted": false,
         },
-        { $pull: { sharedWith: { userId: userId } } }
+        { $pull: { sharedWith: { userId: userId } } }  
       );
     }
     const file = await Model.findById(id);
     if (file.isDeleted && (!file.sharedWith || file.sharedWith.length === 0)) {
-        hardDeleteFiles({userId,file})
+      hardDeleteFiles({ userId, file });
     }
+     
   } catch (error) {
     throw new Error(`error deleting:${error.message}`);
   }
-};
-
-const hardDeleteFiles = async(data)=>{
-   try {
-    const {userId,file} = data
+}   
+              
+const hardDeleteFiles = async (data) => {
+  try {
+    const { userId, file } = data;                   
+    console.log(data)
     let query = {
-      $or: [{ owner: userId }, { $elemMatch: { sharedWith: { userId } } }],
-      parentId: file._id,
-    }
+      parentId: file._id,  // Ensure this is correct and exists
+      $or: [
+        { owner: userId, isMovedToBin: true },  // Files owned by the user and in the bin
+        {
+          sharedWith: {
+            $elemMatch: { userId, isMovedToBin: true },  // Files shared with the user and in the bin
+          },
+        },
+      ],
+    };
+                                       
     if (file && file.type === "folder") {
+       console.log("in")
+      await Folder.findByIdAndDelete(file._id);                            
       await File.deleteMany(query);
-      const folders = await Folder.find(query)
-      for(sub of folders){
-            await Folder.findByIdAndDelete(sub._id)
-            await deleteFile({id:sub._id,type:sub.type,userId})
+      const folders = await Folder.find(query);
+      for (sub of folders) {
+        await hardDeleteFiles({userId,file:sub});
       }
     } else {
-       await File.findByIdAndDelete(file._id);
+       await File.findByIdAndDelete(file._id); 
     }
-   } catch (error) {
-     throw new Error(`error while removing files from db : ${error.message}`)
-   }
-}
+  } catch (error) {
+    throw new Error(`error while removing files from db : ${error.message}`);
+  }
+};
 
 const fileShare = async (data) => {
   try {
     let { id, type, userId, receivers, name } = data;
-    console.log(data, "data");
 
     // Prepare shared user objects
     const sharedUsers = receivers.map((receiverId) => ({
@@ -579,7 +629,6 @@ const fileShare = async (data) => {
 
     // Check if ID is valid (handle "null" case)
     id = id === "null" ? null : id;
-    console.log("Shared Users:", sharedUsers);
 
     // Step 1: Handle Folder Sharing
     if (type === "folder") {
@@ -600,12 +649,6 @@ const fileShare = async (data) => {
         { $addToSet: { sharedWith: { $each: sharedUsers } } }
       );
 
-      // Step 3: Share root-level files directly inside this folder
-      await File.updateMany(
-        { parentId: id, owner: userId },
-        { $addToSet: { sharedWith: { $each: sharedUsers } } }
-      );
-      console.log("Root-level files inside the folder shared successfully.");
 
       // Step 4: Share all nested subfolders and their files recursively
       await shareNestedItems(id); // This will process subfolders and files
@@ -671,10 +714,8 @@ const getSharedFiles = async (details) => {
         $elemMatch: { userId, isMovedToBin: false, isDeleted: false },
       },
     });
-    console.log(files, folders);
     const merge = folders.concat(files);
     const data = await fetchUserDetails(merge);
-    console.log(data, "RES");
     return merge;
   } catch (error) {
     throw new Error(`error while geting shared files:${error.message}`);
@@ -683,8 +724,16 @@ const getSharedFiles = async (details) => {
 
 const searchFileOrFolder = async (query) => {
   try {
-    const files = await File.find({ name: new RegExp(query, "i") });
-    const folders = await Folder.find({ name: new RegExp(query, "i") });
+    const files = await File.find({
+      name: new RegExp(query, "i"),
+      isMovedToBin: false,
+      isDeleted: false,
+    });
+    const folders = await Folder.find({
+      name: new RegExp(query, "i"),
+      isMovedToBin: false,
+      isDeleted: false,
+    });
     return folders.concat(files);
   } catch (error) {
     throw new Error(`error while search:${error.message}`);

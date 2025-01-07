@@ -33,7 +33,7 @@ router.get("/restore",handleFileRestore)
 router.get("/shared",getSharedFiles)
 router.post("/getPresignedUrl",generatePreSignedUrlHandler)
 router.post("/moveToBin",handleMoveToBin)
-router.post("/delete",handleDelete)
+router.get("/delete",handleDelete)
 router.post("/share",handleShare)
 
 module.exports = router;  

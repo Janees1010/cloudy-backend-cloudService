@@ -70,8 +70,8 @@ const handleFileUpload = async(req,res)=>{
 
   const handleMoveToBin = async(req,res)=>{
    try {
-      const {id,type,name} = req.body;
-      const response  = await MoveToBinService(id,type,name)
+      const {id,type,name, userId} = req.body;
+      const response  = await MoveToBinService(id,type,name,userId)
       return res.status(200).json({message:"File Moved to Bin successfully"})
    } catch (error) {
       return res.status(500).json(error.message);
@@ -91,8 +91,6 @@ const handleFileUpload = async(req,res)=>{
     try {
       console.log(req.query);
       const response = await handleFileRestoreService(req.query)
-      console.log(response,"res");
-      
       return res.status(200).json(response)
     } catch (error) {
       return res.status(500).json(error.message);
@@ -101,7 +99,7 @@ const handleFileUpload = async(req,res)=>{
 
  const handleDelete = async(req,res)=>{
     try {
-      const response  =  await handleDeleteService(req.body)
+      const response  =  await handleDeleteService(req.query)
       return res.status(200).json(response)
     } catch (error) {
       return res.status(500).json(error.message);

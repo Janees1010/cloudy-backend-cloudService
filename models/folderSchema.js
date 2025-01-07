@@ -8,6 +8,7 @@ const folderSchema = new mongoose.Schema({
       {
         userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         isMovedToBin: { type: Boolean, default: false }, // Specific to this user
+        isBinRoot:{type:Boolean, default:false},
         isDeleted: { type: Boolean, default: false } // Specific to this user
 
       }

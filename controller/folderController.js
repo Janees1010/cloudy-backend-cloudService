@@ -11,7 +11,7 @@ const handleUploadFolder = async (req, res) => {
       return res.status(400).json({ message: "Files is missing" });
     }
     const response  =  await folderUploadService(req.query,files)
-    return res.status(200).json({message:"folder uploaded successfully",response})
+    return res.status(200).json(response)
   } catch (error) {
     return res.status(500).json(error.message);
   }
