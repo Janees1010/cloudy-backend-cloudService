@@ -48,8 +48,8 @@ const getLatestFolders = async(req,res)=>{
 }
 const getSearchResult = async(req,res)=>{
   try {
-      const {query} = req.query;
-      const result  =  await handleSearchService(query)
+      const {query,userId} = req.query;
+      const result  =  await handleSearchService(query,userId)
       return res.status(200).json(result)
   } catch (error) {
     return res.status(500).json(error.message)

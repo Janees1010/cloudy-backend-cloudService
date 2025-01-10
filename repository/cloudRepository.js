@@ -1,10 +1,6 @@
 const Folder = require("../models/folderSchema");
 const File = require("../models/fileSchema");
 const mongoose = require("mongoose");
-const { loadConfigFromFile } = require("vite");
-const {
-  getUserDetailsByIds,
-} = require("../../userServices/controller/userController");
 
 // const findOneFolder = async(name,userId)=>{
 //     try {
@@ -213,7 +209,7 @@ const findFolder = async (data) => {
 };
 
 const fetchUserDetails = async (data) => {
-  const response = await fetch("http://localhost:3500/user/details", {
+  const response = await fetch("http://51.20.144.82:3500/user/details", {
     headers: {
       "Content-Type": "application/json",
     },
@@ -262,6 +258,7 @@ const getRecentFiles = async (userId) => {
       older: [],
     };
 
+    console.log(recentFiles,"recent");
     const data = await fetchUserDetails(files);
 
     files.forEach((file, index) => {
@@ -444,7 +441,7 @@ const moveToBin = async (id, type, name, userId, isBinRoot = true) => {
     const fileResponse = await File.findOneAndUpdate(matchQuery, updateQuery);
 
     if (!fileResponse) {
-      throw new Error("File not found");
+      throw new Error("File not found");  
     }
 
     return fileResponse;
@@ -722,17 +719,29 @@ const getSharedFiles = async (details) => {
   }
 };
 
-const searchFileOrFolder = async (query) => {
+const searchFileOrFolder = async (query,userId) => {
   try {
     const files = await File.find({
       name: new RegExp(query, "i"),
       isMovedToBin: false,
       isDeleted: false,
+      $or:[
+        {owner:userId},
+        {
+          sharedWith:{$elemMatch:{userId,isMovedToBin:false}}
+        }
+      ]
     });
     const folders = await Folder.find({
       name: new RegExp(query, "i"),
       isMovedToBin: false,
       isDeleted: false,
+      $or:[
+        {owner:userId},
+        {
+          sharedWith:{$elemMatch:{userId,isMovedToBin:false}}
+        }
+      ]
     });
     return folders.concat(files);
   } catch (error) {

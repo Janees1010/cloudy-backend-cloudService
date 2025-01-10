@@ -99,7 +99,7 @@ const handleFileUpload = async(req,res)=>{
 
  const handleDelete = async(req,res)=>{
     try {
-      const response  =  await handleDeleteService(req.query)
+      const response  =  await handleDeleteService(req.query)   
       return res.status(200).json(response)
     } catch (error) {
       return res.status(500).json(error.message);
@@ -108,7 +108,7 @@ const handleFileUpload = async(req,res)=>{
 
  const handleShare = async(req,res)=>{
    try {
-      const response = await handleFileShareService(req.body)
+      const response = await handleFileShareService(req.body)                      
       return res.status(200).json(response)
    } catch (error) {
       return res.status(500).json(error.message);  
